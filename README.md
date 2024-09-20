@@ -1,30 +1,20 @@
-# React + TypeScript + Vite
+# TORless Privacy-Preserving Market
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is an exploration into using zero-knowledge & cryptocurrency to develop a private market that doesn't require the TOR network.
 
-Currently, two official plugins are available:
+## Status
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Currently, it consists of a single script, `bin/create-listings.ts` which:
 
-## Expanding the ESLint configuration
+1. strips the EXIF tags from a set of images
+2. encrypts them using [Lit Protocol](https://litprotocol.com) to be able to be decrypted by a member of a [Bandada](https://bandada.pse.dev) private group
+3. uploads the files *(with the file names changed to their SHA256 hashes)* to [IPFS](https://ipfs.io) via [Web3.Storage](https://web3.stortage)
+4. generates a [JSON5](https://json5.org) dump of the original filenames with the associated hashes and CIDs
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Roadmap
 
-- Configure the top-level `parserOptions` property like this:
+* The script currently has the bulk of its parameters hard coded & it needs to be adapted *(likely using [`yargs`](https://yargs.js.org))* to take it's configuration on the command line.
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json', './tsconfig.app.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
+* I need an interface for programatically creating Bandada groups and adding members to them.
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+* Currently, the script is using Lit's Datil-Dev network which is free. Eventually, I need to support the "Capacity Credit" NFTs which allow use of the mainnet.
