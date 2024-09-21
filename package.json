@@ -13,6 +13,8 @@
     "@lit-protocol/auth-helpers": "^6.5.3",
     "@lit-protocol/constants": "^6.5.3",
     "@lit-protocol/lit-node-client-nodejs": "^6.5.3",
+    "@wagmi/chains": "^1.8.0",
+    "@wagmi/core": "^2.13.5",
     "@web3-storage/w3up-client": "^16.2.0",
     "bip39": "^3.1.0",
     "exif-be-gone": "^1.5.1",

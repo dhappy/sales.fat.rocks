@@ -13,26 +13,16 @@ import {
   createSiweMessageWithRecaps,
   generateAuthSig,
 } from '@lit-protocol/auth-helpers'
-import bip39 from 'bip39'
 import { create as createW3S } from '@web3-storage/w3up-client'
 import { filesFromPaths } from 'files-from-path'
 import JSON5 from 'json5'
-
-const debugValue = process.env.DEBUG
-const debug = (
-  debugValue === 'true' ? 1 : (
-    /^\d+$/.test(debugValue ?? '') ? Number(debugValue) : 0
-  )
-)
-if(debug > 0) console.debug('Debugging enabled.')
+import { debug, w3s } from './config'
+import { getMnemonic } from './lib'
 
 const verifierContractAddress = '0xb908Bcb798e5353fB90155C692BddE3b4937217C'
 const chain = 'sepolia'
 const litNetwork = LitNetwork.DatilDev
 const capacityTokenId = null
-const mnemonicFile = 'mnemonic.txt'
-const w3sOwner = 'dys@dhappy.org'
-const w3sSpaceDID = 'did:key:z6MkmGU7BNUHaaioarERwjM9XHQSZMjHewvCaSj3XP7T6kHx'
 
 const bandadaMembershipCondition = {
   contractAddress: verifierContractAddress,
@@ -55,21 +45,7 @@ const bandadaMembershipCondition = {
 }
 
 const getSessionSignatures = async ({ litNodeClient }) => {
-  let mnemonic
-  if(!fs.existsSync(mnemonicFile)) {
-    mnemonic = await bip39.generateMnemonic()
-    fs.writeFileSync(mnemonicFile, mnemonic.trim())
-  } else {
-    mnemonic = fs.readFileSync(mnemonicFile, 'utf-8')
-  }
-
-  if(debug > 0) {
-    console.debug(
-      `Using ${mnemonic.split(/ /).length} word mnemonic`
-      + ' from `mnemonic.txt`.'
-    )
-  }
-
+  const mnemonic = getMnemonic()
   const wallet = ethers.Wallet.fromMnemonic(mnemonic)
   const latestBlockhash = await litNodeClient.getLatestBlockhash()
 
@@ -150,9 +126,9 @@ const stripExifAndEncrypt = async (
         let sha256
 
         input.on('readable', () => {
-          const data = input.read();
+          const data = input.read()
           if(data) {
-            hash.update(data);
+            hash.update(data)
           } else {
             sha256 = `0x${hash.digest('hex')}`
           }
@@ -202,7 +178,7 @@ const stripExifAndEncrypt = async (
           await litNodeClient.connect()
 
           if(debug > 0) {
-            console.debug(`Encrypting "${fullPath.out}".`)
+            console.debug(`Encrypting: "${fullPath.out}".`)
           }
 
           const { ciphertext, dataToEncryptHash } = (
@@ -232,10 +208,10 @@ const stripExifAndEncrypt = async (
           }
         }
 
-        if(w3sOwner && w3sSpaceDID) {
+        if(w3s.owner && w3s.spaceDID) {
           const w3sClient = await createW3S()
-          await w3sClient.login(w3sOwner)
-          await w3sClient.setCurrentSpace(w3sSpaceDID)
+          await w3sClient.login(w3s.owner)
+          await w3sClient.setCurrentSpace(w3s.spaceDID)
 
           const cid = await w3sClient.uploadDirectory(
             await filesFromPaths([
@@ -265,9 +241,7 @@ const stripExifAndEncrypt = async (
   const outputFile = path.join(outdir, 'cids.json5')
   fs.writeFileSync(outputFile, JSON5.stringify(output, null, 2))
 
-  if(debug > 0) {
-    console.debug(`Wrote CIDs to: "${outputFile}".`)
-  }
+  console.info(`Wrote CIDs to: "${outputFile}".`)
 }
 
 if(process.argv.length < 3) {
