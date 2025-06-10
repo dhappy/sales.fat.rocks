@@ -14,8 +14,8 @@ import {
 } from 'viem'
 import { mnemonicToAccount } from 'viem/accounts'
 import JSON5 from 'json5'
-import { getMnemonic } from './lib'
-import { contractAddress, debug } from './config'
+import { getMnemonic } from './lib.ts'
+import { contractAddress, debug } from './config.ts'
 import bandadaABI from '../src/bandadaGroupABI.json'
 
 const config = createConfig({

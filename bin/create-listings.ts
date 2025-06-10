@@ -1,11 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { Buffer } from 'node:buffer'
 import crypto from 'node:crypto'
 import ExifTransformer from 'exif-be-gone'
 import * as LitJsSdk from '@lit-protocol/lit-node-client-nodejs'
 import { LitNetwork } from '@lit-protocol/constants'
-import semaphoreABI from '../src/semaphoreVerifierABI'
+import semaphoreABI from '../src/semaphoreVerifierABI.ts'
 import { ethers } from 'ethers'
 import {
   LitAccessControlConditionResource,
@@ -16,8 +17,8 @@ import {
 import { create as createW3S } from '@web3-storage/w3up-client'
 import { filesFromPaths } from 'files-from-path'
 import JSON5 from 'json5'
-import { debug, w3s } from './config'
-import { getMnemonic } from './lib'
+import { debug, w3s } from './config.ts'
+import { getMnemonic } from './lib.ts'
 
 const verifierContractAddress = '0xb908Bcb798e5353fB90155C692BddE3b4937217C'
 const chain = 'sepolia'
@@ -36,7 +37,7 @@ const bandadaMembershipCondition = {
     ':litParam:merkleTreeDepth',
   ],
   functionAbi: semaphoreABI,
-  chain,
+  chain: chain as 'sepolia',
   returnValueTest: {
     key: '',
     comparator: '=',
@@ -44,9 +45,10 @@ const bandadaMembershipCondition = {
   },
 }
 
+const mnemonic = getMnemonic()
+const wallet = ethers.Wallet.fromPhrase(mnemonic)
+
 const getSessionSignatures = async ({ litNodeClient }) => {
-  const mnemonic = getMnemonic()
-  const wallet = ethers.Wallet.fromMnemonic(mnemonic)
   const latestBlockhash = await litNodeClient.getLatestBlockhash()
 
   const authNeededCallback = async ({
@@ -111,11 +113,21 @@ const stripExifAndEncrypt = async (
   const outdir = path.join(directory, 'scrubbed-images')
   await fs.promises.mkdir(outdir, { recursive: true })
 
-  const output = {}
+  const output: Record<string, {
+    cid: string
+    cyphertext: string
+    url: string
+  }> = {}
 
   for (const file of files) {
     try {
       const ext = path.extname(file)
+      if(!('escape' in RegExp)) {
+        throw new Error('No `RegExp.escape()`.')
+      }
+      const name = file.replace(new RegExp(
+        `${(RegExp as { escape: (str: string) => string }).escape(ext)}$`
+      ), '')
 
       if(!/\.(jpe?g|png|tiff?|gif|wepb)/i.test(ext)) {
         console.info(`Skipping non-image: "${file}".`)
@@ -123,7 +135,7 @@ const stripExifAndEncrypt = async (
         const inPath = path.join(directory, file)
         const hash = crypto.createHash('sha256')
         const input = fs.createReadStream(inPath)
-        let sha256
+        let sha256: string | null = null
 
         input.on('readable', () => {
           const data = input.read()
@@ -135,7 +147,7 @@ const stripExifAndEncrypt = async (
         })
 
         await new Promise((resolve, reject) => {
-          input.on('end', resolve)
+          input.on('end', () => resolve(sha256))
           input.on('error', reject)
         })
 
@@ -144,24 +156,25 @@ const stripExifAndEncrypt = async (
         }
 
         const outPath = (
-          path.join(outdir, `${sha256}.scrubbed${ext}`)
+          path.join(outdir, `${name}.scrubbed${ext}`)
         )
-        const fullPath = {
+        const basePath: { cypher?: string } = {}
+        const fullPath: {
+          in: string,
+          out: string,
+          enc: string,
+          cypher?: string,
+        } = {
           in: inPath,
           out: outPath,
-          enc: `${outPath}.enc`,
-          hash: `${outPath}.hash`,
+          enc: path.join(outdir, `${sha256}${ext}`),
         }
 
-        if(
-          fs.existsSync(fullPath.enc)
-          && fs.existsSync(fullPath.hash)
-        ) {
+        if(fs.existsSync(fullPath.enc)) {
           console.info(`Skipping Existing Encryption: "${file}".`)
         } else {
           if(
-            litNetwork !== LitNetwork.DatilDev
-            && !capacityTokenId
+            litNetwork !== LitNetwork.DatilDev && !capacityTokenId
           ) {
             throw new Error('`capacityTokenId` is required.')
           }
@@ -181,10 +194,11 @@ const stripExifAndEncrypt = async (
             console.debug(`Encrypting: "${fullPath.out}".`)
           }
 
+          const data = await Deno.readFile(fullPath.out);
           const { ciphertext, dataToEncryptHash } = (
             await LitJsSdk.encryptFile(
               {
-                file: await fs.openAsBlob(fullPath.out),
+                file: new Blob([data]),
                 chain,
                 evmContractConditions: [
                   bandadaMembershipCondition
@@ -198,14 +212,9 @@ const stripExifAndEncrypt = async (
           )
 
           const outBuffer = Buffer.from(ciphertext, 'base64')
-          fs.writeFileSync(fullPath.enc, outBuffer)
-          fs.writeFileSync(fullPath.hash, dataToEncryptHash)
-
-          if(debug > 0) {
-            console.debug(
-              `Wrote "${fullPath.out}.(enc|hash)".`
-            )
-          }
+          basePath.cypher = `${dataToEncryptHash.replace(/^(0x)?/, '0x')}${ext}.encrypted`
+          fullPath.cypher = path.join(outdir, basePath.cypher)
+          fs.writeFileSync(fullPath.cypher, outBuffer)
         }
 
         if(w3s.owner && w3s.spaceDID) {
@@ -214,20 +223,24 @@ const stripExifAndEncrypt = async (
           await w3sClient.setCurrentSpace(w3s.spaceDID)
 
           const cid = await w3sClient.uploadDirectory(
-            await filesFromPaths([
-              fullPath.enc, fullPath.hash,
-            ])
+            await filesFromPaths([fullPath.cypher as string])
           )
 
           if(debug > 0) {
             console.debug(
-              `File "${fullPath.out}.(enc|hash)"`
+              `File, "${basePath.cypher}",`
               + `\n  uploaded to Web3.Storage with CID: ${cid}.`
             )
           }
 
           output[file] = {
-            cid: cid.toString(), sha256,
+            cid: cid.toString(),
+            cyphertext: basePath.cypher ?? (
+              (() => { throw new Error('¡No cyphertext!') })()
+            ),
+            get url() {
+              return `ipfs://${this.cid}/${this.cyphertext}`
+            },
           }
         }
       }
@@ -237,7 +250,7 @@ const stripExifAndEncrypt = async (
       throw new Error('Quitting due to error.')
     }
   }
- 
+
   const outputFile = path.join(outdir, 'cids.json5')
   fs.writeFileSync(outputFile, JSON5.stringify(output, null, 2))
 

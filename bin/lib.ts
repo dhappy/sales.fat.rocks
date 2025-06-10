@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { english, generateMnemonic } from 'viem/accounts'
-import { debug, mnemonicFile } from './config'
+import { debug, mnemonicFile } from './config.ts'
 
 export const getMnemonic = () => {
   let mnemonic
