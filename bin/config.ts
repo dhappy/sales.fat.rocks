@@ -1,7 +1,9 @@
 import path from 'node:path'
 import process from 'node:process'
 
-export const mnemonicFile = path.join(import.meta.dirname, '..', 'mnemonic.txt')
+export const mnemonicFile = path.join(
+  import.meta.dirname ?? '.', '..', 'mnemonic.txt'
+)
 
 const debugValue = process.env.DEBUG
 export const debug = (

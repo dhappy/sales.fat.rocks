@@ -261,7 +261,7 @@ if(process.argv.length < 3) {
   throw new Error(
     `Error: ${process.argv.length}`
     + ` argument${process.argv.length === 1 ? '' : 's'}`
-    + '\n\nUsage: npx tsx create-listings.ts <image directory>'
+    + '\n\nUsage: deno run bin/create-listings.ts <image directory>'
   )
 }
 
