@@ -4,13 +4,13 @@ import process from 'node:process'
 import { Buffer } from 'node:buffer'
 import crypto from 'node:crypto'
 import ExifTransformer from 'exif-be-gone'
-import * as LitJsSdk from '@lit-protocol/lit-node-client-nodejs'
-import { LitNetwork } from '@lit-protocol/constants'
+import { encryptFile } from '@lit-protocol/encryption'
+import * as LitJSSdk from '@lit-protocol/lit-node-client-nodejs'
+import { LIT_ABILITY, LIT_NETWORK } from '@lit-protocol/constants'
 import semaphoreABI from '../src/semaphoreVerifierABI.ts'
 import { ethers } from 'ethers'
 import {
   LitAccessControlConditionResource,
-  LitAbility,
   createSiweMessageWithRecaps,
   generateAuthSig,
 } from '@lit-protocol/auth-helpers'
@@ -22,7 +22,7 @@ import { getMnemonic } from './lib.ts'
 
 const verifierContractAddress = '0xb908Bcb798e5353fB90155C692BddE3b4937217C'
 const chain = 'sepolia'
-const litNetwork = LitNetwork.DatilDev
+const litNetwork = LIT_NETWORK.DatilDev
 const capacityTokenId = null
 
 const bandadaMembershipCondition = {
@@ -78,7 +78,7 @@ const getSessionSignatures = async ({ litNodeClient }) => {
   const litResource = new LitAccessControlConditionResource('*')
   let capacityDelegationAuthSig
 
-  if(litNetwork !== LitNetwork.DatilDev) {
+  if(litNetwork !== LIT_NETWORK.DatilDev) {
     if(!capacityTokenId) {
       throw new Error('`capacityTokenId` is required.')
     }
@@ -97,7 +97,7 @@ const getSessionSignatures = async ({ litNodeClient }) => {
     chain,
     resourceAbilityRequests: [{
       resource: litResource,
-      ability: LitAbility.AccessControlConditionDecryption,
+      ability: LIT_ABILITY.AccessControlConditionDecryption,
     }],
     authNeededCallback,
     capacityDelegationAuthSig,
@@ -119,7 +119,7 @@ const stripExifAndEncrypt = async (
     url: string
   }> = {}
 
-  for (const file of files) {
+  for(const file of files) {
     try {
       const ext = path.extname(file)
       if(!('escape' in RegExp)) {
@@ -174,7 +174,7 @@ const stripExifAndEncrypt = async (
           console.info(`Skipping Existing Encryption: "${file}".`)
         } else {
           if(
-            litNetwork !== LitNetwork.DatilDev && !capacityTokenId
+            litNetwork !== LIT_NETWORK.DatilDev && !capacityTokenId
           ) {
             throw new Error('`capacityTokenId` is required.')
           }
@@ -183,12 +183,12 @@ const stripExifAndEncrypt = async (
           const writer = fs.createWriteStream(fullPath.out)
           reader.pipe(new ExifTransformer()).pipe(writer)
 
-          const litNodeClient = new LitJsSdk.LitNodeClientNodeJs({
+          const litClient = new LitJSSdk.LitNodeClientNodeJs({
             litNetwork,
             alertWhenUnauthorized: false,
             debug: debug > 1,
           })
-          await litNodeClient.connect()
+          await litClient.connect()
 
           if(debug > 0) {
             console.debug(`Encrypting: "${fullPath.out}".`)
@@ -196,7 +196,7 @@ const stripExifAndEncrypt = async (
 
           const data = await Deno.readFile(fullPath.out);
           const { ciphertext, dataToEncryptHash } = (
-            await LitJsSdk.encryptFile(
+            await encryptFile(
               {
                 file: new Blob([data]),
                 chain,
@@ -204,10 +204,10 @@ const stripExifAndEncrypt = async (
                   bandadaMembershipCondition
                 ],
                 sessionSigs: await getSessionSignatures({
-                  litNodeClient,
+                  litNodeClient: litClient,
                 }),
               },
-              litNodeClient,
+              litClient,
             )
           )
 
