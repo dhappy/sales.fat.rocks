@@ -11,6 +11,11 @@ Currently, it consists of a single script, `bin/create-listings.ts` which:
 3. uploads the files *(with the file names changed to their SHA256 hashes)* to [IPFS](https://ipfs.io) via [Web3.Storage](https://web3.stortage)
 4. generates a [JSON5](https://json5.org) dump of the original filenames with the associated hashes and CIDs
 
+## Running
+
+* `deno install`
+* `DEBUG=1 deno run -A bin/create-listings.ts <directory of images>`
+
 ## Roadmap
 
 * The script currently has the bulk of its parameters hard coded & it needs to be adapted *(likely using [`yargs`](https://yargs.js.org))* to take it's configuration on the command line.
