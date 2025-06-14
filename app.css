@@ -1,0 +1,8 @@
+@font-face {
+  font-family: 'Brilliant Gemstone';
+  src: url('/Brilliant%20Gemstone.woff') format('woff');
+}
+
+:root {
+  color-scheme: light dark;
+}
