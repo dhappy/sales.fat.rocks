@@ -20,6 +20,6 @@ Currently, it consists of a single script, `bin/create-listings.ts` which:
 
 * The script currently has the bulk of its parameters hard coded & it needs to be adapted *(likely using [`yargs`](https://yargs.js.org))* to take it's configuration on the command line.
 
-* I need an interface for programatically creating Bandada groups and adding members to them.
+* I need an interface for programmatically creating Bandada groups and adding members to them.
 
 * Currently, the script is using Lit's Datil-Dev network which is free. Eventually, I need to support the "Capacity Credit" NFTs which allow use of the mainnet.
