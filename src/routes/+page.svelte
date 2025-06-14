@@ -1,26 +1,40 @@
 <script lang="ts">
+  import JSON5 from 'json5'
   import { page } from '$app/state'
 
   let images = $state<Array<string>>([])
+  let error = $state<string | null>(null)
 
   $effect(() => {
-    let cid = page.url.searchParams.get('cid')
-    if(!cid) {
-      throw new Error('No `cid` query parameter specified.')
-    }
-    cid = cid.replace(/^ipfs:\/\//, '')
-    const url = `https://w3s.link/ipfs/${cid}`
-    fetch(url)
-    .then((res) => {
-      if(!res.ok) {
-        throw new Error(
-          `Can't retrieve "${url}" (${res.status}: ${res.statusText})`
-        )
+    try {
+      let cid = page.url.searchParams.get('cid')
+      if(!cid) {
+        throw new Error('No `cid` query parameter specified.')
       }
-      return res.json()
-    })
-    .then((data) => images = data)
+      cid = cid.replace(/^ipfs:\/\//, '')
+      const url = `https://w3s.link/ipfs/${cid}`
+      fetch(url)
+      .then((res) => {
+        if(!res.ok) {
+          throw new Error(
+            `Can't retrieve "${url}" (${res.status}: ${res.statusText})`
+          )
+        }
+        return res.text()
+      })
+      .then((data) => images = JSON5.parse(data))
+    } catch(err) {
+      error = (err as Error).message
+    }
   })
+
+  function toHTTP(url: string) {
+    const [, cid, path] = url.match(/^ipfs:\/\/([^/]+)(?:\/(.*))$/) ?? []
+    if(cid) {
+      url = `https://w3s.link/ipfs/${cid}/${path}`
+    }
+    return url
+  }
 </script>
 
 <svelte:head>
@@ -32,10 +46,14 @@
 </header>
 
 <main>
+  {#if error}
+    <h2>{error}</h2>
+  {/if}
   <ul id="images">
-    {#each images as image}
-      {@const title = decodeURIComponent(image.replace(/^.*:\/\/[^/]+\/[^.]+\.(.+)\.jpg$/, '$1'))}
-      <li><figure>
+    {#each images as ipfsImage, idx}
+      {@const image = toHTTP(ipfsImage)}
+      {@const title = decodeURIComponent(image.replace(/^.*:\/\/[^/]+\/[^.]+\.(.+)\.(jpg|png)$/, '$1'))}
+      <li class:first={idx === 0}><figure>
         <a
           href={image}
           target="_blank"
@@ -69,7 +87,6 @@
 
   h1 {
     font-family: 'Brilliant Gemstone', sans-serif;
-    text-align: center;
     font-size: clamp(55pt, 12vw, 88pt);
     color: transparent;
     background-clip: text;
@@ -77,6 +94,10 @@
     text-fill-color: transparent;
     -webkit-text-stroke-width: 3px;
     animation: spin 1s infinite linear;
+  }
+
+  h1, h2 {
+    text-align: center;
   }
 
   @keyframes spin {
@@ -127,6 +148,11 @@
       &:hover {
         border-color: light-dark(#2900A0, #936DFF);
       }
+    }
+
+    & .first img {
+      padding: 1rem;
+      border-radius: 0;
     }
   }
 
